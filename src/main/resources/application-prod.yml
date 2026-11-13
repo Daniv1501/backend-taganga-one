@@ -1,0 +1,31 @@
+# Perfil de producción (Vercel). Se activa con SPRING_PROFILES_ACTIVE=prod (ya viene en el Dockerfile).
+
+spring:
+  datasource:
+    # En producción no hay valores por defecto: si faltan, la aplicación no arranca
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      # Vercel escala instancias a demanda: pocas conexiones por instancia
+      # para no agotar el límite de la base de datos (Neon, Supabase…)
+      maximum-pool-size: ${DB_POOL_SIZE:3}
+      minimum-idle: 0
+      idle-timeout: 30000
+      max-lifetime: 300000
+      connection-timeout: 10000
+
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+server:
+  # Vercel está delante como proxy: respeta X-Forwarded-* (https, host)
+  forward-headers-strategy: framework
+  shutdown: graceful
+
+logging:
+  level:
+    root: INFO

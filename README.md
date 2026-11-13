@@ -149,6 +149,52 @@ al arrancar solo comprueba que las entidades coincidan con las tablas.
 | Leaflet | CDN | Dependencia npm, incluida en el build |
 | Sin conexión | Todo funcionaba | Abre la app, el mapa ya visto, el decálogo y las preguntas frecuentes; **registrarse, ingresar y hacer preguntas libres requieren conexión** |
 
+## Despliegue en Vercel
+
+Vercel no tiene runtime de Java, pero ejecuta cualquier `Dockerfile`: detecta el
+[`Dockerfile`](Dockerfile) de la raíz, compila el JAR y arranca el contenedor con el perfil
+`prod` ([`application-prod.yml`](src/main/resources/application-prod.yml)).
+
+**1. Base de datos PostgreSQL.** Vercel no la incluye. Crea una en el Marketplace de Vercel
+(Neon o Supabase) o en cualquier proveedor. Usa la **cadena con pooler** si existe, porque
+cada instancia abre sus propias conexiones. Flyway crea las tablas en el primer arranque.
+
+**2. Variables de entorno** (Project → Settings → Environment Variables):
+
+| Variable | Ejemplo | Nota |
+|---|---|---|
+| `PORT` | `8080` | **Obligatoria.** Vercel enruta al puerto 80 por defecto y el contenedor no corre como root |
+| `DB_URL` | `jdbc:postgresql://ep-xxx-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require` | Formato **JDBC**. La URL `postgres://usuario:clave@host/db` que da Neon no sirve tal cual: quítale el usuario y la clave y antepón `jdbc:` |
+| `DB_USER` | `neondb_owner` | |
+| `DB_PASSWORD` | `••••` | |
+| `APP_CORS_ALLOWED_ORIGINS` | `https://frontend-taganga-ui.vercel.app` | Dominio(s) del frontend, separados por coma, sin `/` final |
+| `DB_POOL_SIZE` | `3` | Opcional |
+
+**3. Desplegar.** Importa el repositorio en Vercel (si lo pide, el framework es *Other*) o,
+con la CLI:
+
+```bash
+npm i -g vercel
+vercel login
+vercel link
+vercel deploy --prod
+```
+
+Si el proyecto ya existía con otro framework: `vercel project update --framework container --yes`.
+
+**4. Frontend.** En el proyecto `frontend-taganga-ui`, apunta la URL de la API al dominio que
+Vercel asigne a este backend.
+
+**A tener en cuenta**
+
+- Las instancias se apagan cuando no hay tráfico. La primera petición después de un rato
+  tarda unos segundos mientras arranca Spring Boot (*cold start*).
+- Un `502` en todas las peticiones casi siempre significa que falta `PORT=8080`.
+- Si la aplicación no arranca con un error de conexión, revisa el formato JDBC de `DB_URL`
+  y que lleve `sslmode=require`.
+- Probar la imagen en local:
+  `docker build -t taganga-one . && docker run -p 8080:8080 -e DB_URL=... -e DB_USER=... -e DB_PASSWORD=... taganga-one`
+
 ## 10. Limitaciones conocidas
 
 Antes de usarlo con visitantes reales hay que resolver lo siguiente:

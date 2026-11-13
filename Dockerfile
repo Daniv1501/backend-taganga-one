@@ -1,0 +1,32 @@
+# Imagen para desplegar el backend en Vercel (Vercel detecta este Dockerfile en la raíz).
+# También sirve para cualquier otra plataforma de contenedores.
+
+# ---------- Etapa 1: compilación ----------
+FROM maven:3.9.11-eclipse-temurin-21 AS build
+WORKDIR /app
+
+# Descarga de dependencias en una capa aparte para aprovechar la caché
+COPY pom.xml .
+RUN mvn -B -q dependency:go-offline
+
+COPY src ./src
+# Las pruebas usan Testcontainers (necesitan Docker), así que se ejecutan en local/CI, no aquí
+RUN mvn -B -q package -DskipTests \
+    && cp target/*.jar app.jar
+
+# ---------- Etapa 2: ejecución ----------
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+
+# Usuario sin privilegios: por eso el puerto debe ser >= 1024 (PORT=8080)
+RUN groupadd --system spring && useradd --system --gid spring spring
+USER spring:spring
+
+COPY --from=build /app/app.jar app.jar
+
+ENV PORT=8080 \
+    SPRING_PROFILES_ACTIVE=prod \
+    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k"
+
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

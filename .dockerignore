@@ -1,0 +1,13 @@
+target/
+.git/
+.gitattributes
+.idea/
+.vscode/
+*.iml
+.mvn/wrapper/maven-wrapper.jar
+prototipo/
+README.md
+HELP.md
+.env
+.env.*
+.vercel/
