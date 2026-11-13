@@ -2,10 +2,12 @@
 
 spring:
   datasource:
-    # En producción no hay valores por defecto: si faltan, la aplicación no arranca
-    url: ${DB_URL}
-    username: ${DB_USER}
-    password: ${DB_PASSWORD}
+    # DB_URL / DB_USER / DB_PASSWORD tienen prioridad. Si no existen, se usan las variables
+    # que la integración de Neon en Vercel crea sola (PGHOST es el host con pooler).
+    # Si faltan ambas, la aplicación no arranca.
+    url: ${DB_URL:jdbc:postgresql://${PGHOST}/${PGDATABASE}?sslmode=require}
+    username: ${DB_USER:${PGUSER}}
+    password: ${DB_PASSWORD:${PGPASSWORD}}
     hikari:
       # Vercel escala instancias a demanda: pocas conexiones por instancia
       # para no agotar el límite de la base de datos (Neon, Supabase…)
