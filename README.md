@@ -151,8 +151,8 @@ al arrancar solo comprueba que las entidades coincidan con las tablas.
 
 ## Despliegue en Vercel
 
-Vercel no tiene runtime de Java, pero ejecuta cualquier `Dockerfile`: detecta el
-[`Dockerfile`](Dockerfile) de la raíz, compila el JAR y arranca el contenedor con el perfil
+Vercel no tiene runtime de Java, pero ejecuta contenedores Docker: usa el
+[`Dockerfile.vercel`](Dockerfile.vercel) de la raíz (ese nombre fuerza el preset *Container*), compila el JAR y arranca el contenedor con el perfil
 `prod` ([`application-prod.yml`](src/main/resources/application-prod.yml)).
 
 **1. Base de datos PostgreSQL.** Vercel no la incluye. Crea una en el Marketplace de Vercel
@@ -193,7 +193,7 @@ Vercel asigne a este backend.
 - Si la aplicación no arranca con un error de conexión, revisa el formato JDBC de `DB_URL`
   y que lleve `sslmode=require`.
 - Probar la imagen en local:
-  `docker build -t taganga-one . && docker run -p 8080:8080 -e DB_URL=... -e DB_USER=... -e DB_PASSWORD=... taganga-one`
+  `docker build -f Dockerfile.vercel -t taganga-one . && docker run -p 8080:8080 -e DB_URL=... -e DB_USER=... -e DB_PASSWORD=... taganga-one`
 
 ## 10. Limitaciones conocidas
 

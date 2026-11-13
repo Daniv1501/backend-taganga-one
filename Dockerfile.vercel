@@ -1,4 +1,5 @@
-# Imagen para desplegar el backend en Vercel (Vercel detecta este Dockerfile en la raíz).
+# Imagen para desplegar el backend en Vercel. El nombre Dockerfile.vercel obliga a Vercel
+# a usar el preset Container (si no, puede tratar el proyecto como estático y dar 404).
 # También sirve para cualquier otra plataforma de contenedores.
 
 # ---------- Etapa 1: compilación ----------
