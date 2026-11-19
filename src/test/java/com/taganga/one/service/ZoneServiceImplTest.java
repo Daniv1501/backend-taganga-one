@@ -35,9 +35,9 @@ class ZoneServiceImplTest {
 
     @Test
     void shouldReturnZonesInDisplayOrder() {
-        Zone zone = new Zone("CAPILLA", ZoneType.SACRED, "Capilla", "Templo", "Silencio",
+        Zone zone = new Zone("CAPILLA", ZoneType.ZEPAT, "Capilla", "Templo", "Silencio",
                 ZoneGeometry.POINT, 1, List.of(new GeoPoint(11.26, -74.18)));
-        ZoneResponse response = new ZoneResponse("CAPILLA", ZoneType.SACRED, "Capilla", "Templo",
+        ZoneResponse response = new ZoneResponse("CAPILLA", ZoneType.ZEPAT, "Capilla", "Templo",
                 "Silencio", ZoneGeometry.POINT, List.of(new CoordinateResponse(11.26, -74.18)));
 
         when(repository.findAllByOrderByDisplayOrderAsc()).thenReturn(List.of(zone));

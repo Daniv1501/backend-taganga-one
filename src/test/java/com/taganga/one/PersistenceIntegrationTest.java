@@ -6,6 +6,7 @@ import com.taganga.one.domain.VisitReason;
 import com.taganga.one.domain.Visitor;
 import com.taganga.one.domain.Zone;
 import com.taganga.one.domain.ZoneGeometry;
+import com.taganga.one.domain.ZoneType;
 import com.taganga.one.dto.request.AskAssistantRequest;
 import com.taganga.one.dto.request.CreateVisitorRequest;
 import com.taganga.one.dto.request.VisitorLoginRequest;
@@ -103,14 +104,14 @@ class PersistenceIntegrationTest {
 
     @Test
     void migrationsSeedAllPrototypeData() {
-        assertThat(zoneRepository.count()).isEqualTo(10);
+        assertThat(zoneRepository.count()).isEqualTo(24);
         assertThat(decalogueRepository.count()).isEqualTo(10);
         assertThat(assistantRepository.findByTypeOrderByDisplayOrderAsc(AssistantEntryType.FAQ))
                 .hasSize(6);
         assertThat(assistantRepository.findByTypeOrderByDisplayOrderAsc(AssistantEntryType.EXTRA))
                 .hasSize(7);
         assertThat(jdbcTemplate.queryForObject(
-                "select count(*) from zone_coordinates", Integer.class)).isEqualTo(43);
+                "select count(*) from zone_coordinates", Integer.class)).isEqualTo(233);
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from assistant_keywords", Integer.class)).isEqualTo(85);
     }
@@ -119,25 +120,27 @@ class PersistenceIntegrationTest {
     void zonesKeepOrderAndCoordinateSequence() {
         List<Zone> zones = zoneRepository.findAllByOrderByDisplayOrderAsc();
 
-        assertThat(zones).hasSize(10);
-        assertThat(zones.get(0).getCode()).isEqualTo("PLAYA_MALECON");
-        assertThat(zones.get(9).getCode()).isEqualTo("CALADERO_BAHIA_SUR");
+        assertThat(zones).hasSize(24);
+        assertThat(zones.get(0).getCode()).isEqualTo("ZEPAT_AGUJA");
+        assertThat(zones.get(0).getType()).isEqualTo(ZoneType.ZEPAT);
+        assertThat(zones.get(23).getCode()).isEqualTo("RUTA_MOTO");
 
-        Zone trail = zones.get(2);
-        assertThat(trail.getGeometry()).isEqualTo(ZoneGeometry.LINE);
-        GeoPoint first = trail.getCoordinates().get(0);
-        GeoPoint last = trail.getCoordinates().get(3);
-        assertThat(first.getLatitude()).isEqualTo(11.2650);
-        assertThat(last.getLongitude()).isEqualTo(-74.1980);
+        Zone route = zones.get(19);
+        assertThat(route.getGeometry()).isEqualTo(ZoneGeometry.LINE);
+        assertThat(route.getType()).isEqualTo(ZoneType.TOURIST_TRANSPORT);
+        assertThat(route.getCoordinates()).hasSize(23);
+        GeoPoint first = route.getCoordinates().get(0);
+        assertThat(first.getLatitude()).isEqualTo(11.266020);
+        assertThat(first.getLongitude()).isEqualTo(-74.191623);
     }
 
     @Test
     void zoneServiceMapsCoordinatesInsideTransaction() {
-        ZoneResponse chapel = zoneService.findAll().get(4);
+        ZoneResponse aguja = zoneService.findAll().get(0);
 
-        assertThat(chapel.name()).isEqualTo("Capilla de San Pedro (religioso)");
-        assertThat(chapel.geometry()).isEqualTo(ZoneGeometry.POINT);
-        assertThat(chapel.coordinates()).hasSize(1);
+        assertThat(aguja.name()).isEqualTo("ZEPAT Isla Aguja");
+        assertThat(aguja.geometry()).isEqualTo(ZoneGeometry.POLYGON);
+        assertThat(aguja.coordinates()).hasSize(26);
     }
 
     @Test

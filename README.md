@@ -37,7 +37,9 @@ El asistente es **simulado**: responde por coincidencia de palabras clave, sin I
 Enumerados (persistidos como `VARCHAR` vía `@Enumerated(EnumType.STRING)`):
 
 - `VisitReason`: `TOURISM`, `DIVING_SNORKELING`, `ACADEMIC`, `FAMILY_VISIT`, `OTHER`
-- `ZoneType`: `FREE_TRANSIT`, `SACRED`, `ECOLOGICAL`, `ARTISANAL_FISHING`
+- `ZoneType`: convenciones de la cartografía ZEPAT: `ZEPAT`, `DIVING_IMPACT`, `DIVING_AGREED`,
+  `NO_DIVING`, `SNORKEL`, `SNORKEL_IMPACT`, `SNORKEL_NO_IMPACT`, `BOAT_IMPACT`, `TOURISM_IMPACT`,
+  `BANANA_BOAT`, `KAYAK`, `JET_SKI`, `TOURIST_TRANSPORT`
 - `ZoneGeometry`: `POLYGON`, `LINE`, `POINT`
 - `AssistantEntryType`: `FAQ`, `EXTRA`
 
@@ -131,10 +133,11 @@ al arrancar solo comprueba que las entidades coincidan con las tablas.
 | Migración | Contenido |
 |---|---|
 | `V1__create_schema.sql` | Tablas, restricciones `UNIQUE` y `CHECK`, índices y la secuencia de códigos |
-| `V2__insert_zones.sql` | Las 10 zonas del mapa y sus 43 coordenadas |
+| `V2__insert_zones.sql` | Las 10 zonas referenciales del prototipo (V6 las reemplaza) |
 | `V3__insert_decalogue.sql` | Las 10 reglas del decálogo |
 | `V4__insert_assistant_knowledge.sql` | 6 preguntas frecuentes, 7 respuestas adicionales y 85 palabras clave |
 | `V5__email_password_login.sql` | Quita el documento, agrega `password_hash` y vuelve único el correo. **Borra los visitantes anteriores**, que no tenían contraseña |
+| `V6__zepat_zones.sql` | Reemplaza las zonas por las 24 de la cartografía ZEPAT del Cabildo (233 coordenadas) y cambia los tipos de zona |
 
 ## 9. Diferencias con el prototipo
 
@@ -231,7 +234,7 @@ taganga-one/
 │   │   └── service/       (interfaces + impl)
 │   └── resources
 │       ├── application.yml
-│       └── db/migration   (V1 … V5)
+│       └── db/migration   (V1 … V6)
 └── src/test/java/com/taganga/one
     ├── PersistenceIntegrationTest.java
     ├── controller/

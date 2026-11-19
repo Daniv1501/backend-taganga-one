@@ -34,14 +34,14 @@ class ZoneControllerTest {
     @Test
     void shouldListZones() throws Exception {
         when(service.findAll()).thenReturn(List.of(new ZoneResponse(
-                "CAPILLA_SAN_PEDRO", ZoneType.SACRED, "Capilla de San Pedro (religioso)",
+                "CAPILLA_SAN_PEDRO", ZoneType.ZEPAT, "Capilla de San Pedro (religioso)",
                 "Templo del patrono de los pescadores.", "Visita en silencio.",
                 ZoneGeometry.POINT, List.of(new CoordinateResponse(11.2672, -74.1882)))));
 
         mockMvc.perform(get("/api/zones"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].code").value("CAPILLA_SAN_PEDRO"))
-                .andExpect(jsonPath("$[0].type").value("SACRED"))
+                .andExpect(jsonPath("$[0].type").value("ZEPAT"))
                 .andExpect(jsonPath("$[0].geometry").value("POINT"))
                 .andExpect(jsonPath("$[0].coordinates[0].latitude").value(11.2672))
                 .andExpect(jsonPath("$[0].coordinates[0].longitude").value(-74.1882));
