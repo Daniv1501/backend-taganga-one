@@ -2,6 +2,11 @@ spring:
   application:
     name: taganga-one
 
+  config:
+    # Secretos locales (GEMINI_API_KEY…) en un archivo .env en la raíz, que Git ignora.
+    # En Vercel se definen en Settings → Environment Variables.
+    import: optional:file:.env[.properties]
+
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/taganga}
     username: ${DB_USER:postgres}
@@ -28,3 +33,13 @@ app:
   cors:
     # Orígenes del frontend (repositorio frontend-taganga-ui), separados por coma
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:4173}
+
+  gemini:
+    # Clave de Google AI Studio. Vacía = el asistente usa solo el motor de palabras clave.
+    api-key: ${GEMINI_API_KEY:}
+    # gemini-2.5-flash queda obsoleto el 1/12/2026; 3.5 Flash-Lite es el estable rápido y económico
+    model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
+    base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
+    # Si Gemini tarda más, se responde con el motor de palabras clave
+    timeout: 20s
+    max-output-tokens: 700

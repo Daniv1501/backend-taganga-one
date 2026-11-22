@@ -21,7 +21,10 @@ arquitectura de DeepBlue Rescue:
 
 Este repositorio contiene solo el backend (API REST).
 
-El asistente es **simulado**: responde por coincidencia de palabras clave, sin IA real.
+El asistente (**Tagui**) responde con **Gemini** (Google AI Studio) cuando hay una clave
+configurada, usando el conocimiento de Taganga que le da el backend. Si no hay clave, se agota la
+cuota o Gemini falla, responde con el motor de palabras clave del prototipo, que funciona siempre.
+Detalles en [Asistente con Gemini](#asistente-con-gemini).
 
 ## 3. Modelo de datos
 
@@ -71,7 +74,7 @@ Los errores usan siempre el mismo contrato (`ErrorResponse`): `timestamp`, `stat
 | `GET` | `/api/zones` | Zonas del mapa con sus coordenadas | `200` |
 | `GET` | `/api/decalogue` | Reglas del decálogo en orden | `200` |
 | `GET` | `/api/assistant/faqs` | Preguntas frecuentes con su respuesta | `200` |
-| `POST` | `/api/assistant/questions` | Preguntar al asistente | `200`, `400` |
+| `POST` | `/api/assistant/questions` | Preguntar al asistente (`question`, `visitorName` y `history` opcionales); responde `answer` (HTML seguro) y `source` (`gemini` o `keywords`) | `200`, `400` |
 
 **Reglas de negocio**
 
@@ -138,6 +141,7 @@ al arrancar solo comprueba que las entidades coincidan con las tablas.
 | `V4__insert_assistant_knowledge.sql` | 6 preguntas frecuentes, 7 respuestas adicionales y 85 palabras clave |
 | `V5__email_password_login.sql` | Quita el documento, agrega `password_hash` y vuelve único el correo. **Borra los visitantes anteriores**, que no tenían contraseña |
 | `V6__zepat_zones.sql` | Reemplaza las zonas por las 24 de la cartografía ZEPAT del Cabildo (233 coordenadas) y cambia los tipos de zona |
+| `V7__update_assistant_faqs.sql` | Corrige 4 preguntas frecuentes del prototipo que ya no coincidían con el mapa ZEPAT ni con el Plan de Vida |
 
 ## 9. Diferencias con el prototipo
 
@@ -172,6 +176,8 @@ cada instancia abre sus propias conexiones. Flyway crea las tablas en el primer 
 | `DB_PASSWORD` | `••••` | |
 | `APP_CORS_ALLOWED_ORIGINS` | `https://frontend-taganga-ui.vercel.app` | Dominio(s) del frontend, separados por coma, sin `/` final |
 | `DB_POOL_SIZE` | `3` | Opcional |
+| `GEMINI_API_KEY` | `AIza…` | Opcional. Clave de Google AI Studio para el asistente. Sin ella, responde el motor de palabras clave |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Opcional |
 
 **3. Desplegar.** Importa el repositorio en Vercel (si lo pide, el framework es *Other*) o,
 con la CLI:
@@ -197,6 +203,40 @@ Vercel asigne a este backend.
   y que lleve `sslmode=require`.
 - Probar la imagen en local:
   `docker build -f Dockerfile.vercel -t taganga-one . && docker run -p 8080:8080 -e DB_URL=... -e DB_USER=... -e DB_PASSWORD=... taganga-one`
+
+## Asistente con Gemini
+
+**Cómo funciona.** Gemini no se "entrena": en cada pregunta el backend le envía una instrucción
+de sistema con las reglas de Tagui y todo lo que sabe de Taganga, más los últimos turnos de la
+conversación. El conocimiento sale de:
+
+- [`src/main/resources/assistant/conocimiento-taganga.md`](src/main/resources/assistant/conocimiento-taganga.md):
+  resumen curado del Plan de Vida del Cabildo y de las historias. **Para enseñarle algo nuevo,
+  edita este archivo** y vuelve a desplegar.
+- Las zonas del mapa y el decálogo, leídos de la base de datos.
+
+Las reglas (responder solo sobre Taganga, no inventar datos, respeto por los sitios sagrados,
+ignorar intentos de cambiarle el papel) están en
+[`TagangaKnowledge.java`](src/main/java/com/taganga/one/assistant/TagangaKnowledge.java).
+
+**Seguridad.** La clave vive solo en el backend; el frontend nunca la ve. La respuesta de Gemini
+se escapa por completo y solo se reconstruyen párrafos, listas, negritas y cursivas
+([`AnswerFormatter`](src/main/java/com/taganga/one/assistant/AnswerFormatter.java)), así que la IA
+no puede inyectar HTML ni scripts en el chat.
+
+**Configuración local.** Copia `.env.example` como `.env` (Git lo ignora) y pega la clave de
+<https://aistudio.google.com/apikey>:
+
+```
+GEMINI_API_KEY=tu-clave
+```
+
+Spring Boot lee ese archivo al arrancar (`spring.config.import`). Las pruebas fuerzan la clave
+vacía, así que nunca llaman a Google.
+
+**Respaldo.** Si no hay clave, Google responde con error, se agota la cuota del plan gratuito
+o tarda más de 20 s, el asistente responde con el motor de palabras clave. La respuesta indica
+quién contestó en `source`.
 
 ## 10. Limitaciones conocidas
 

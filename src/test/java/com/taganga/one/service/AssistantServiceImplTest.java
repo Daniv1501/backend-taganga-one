@@ -1,8 +1,10 @@
 package com.taganga.one.service;
 
+import com.taganga.one.assistant.GeminiAssistant;
 import com.taganga.one.domain.AssistantEntry;
 import com.taganga.one.domain.AssistantEntryType;
 import com.taganga.one.dto.request.AskAssistantRequest;
+import com.taganga.one.dto.response.AssistantAnswerResponse;
 import com.taganga.one.dto.response.FaqResponse;
 import com.taganga.one.mapper.AssistantMapper;
 import com.taganga.one.repository.AssistantEntryRepository;
@@ -18,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
@@ -47,6 +50,11 @@ class AssistantServiceImplTest {
 
     @Mock
     private AssistantMapper mapper;
+
+    // Por defecto Mockito devuelve Optional.empty(): Gemini "no responde" y se usa el
+    // motor de palabras clave, que es lo que prueban la mayoría de casos.
+    @Mock
+    private GeminiAssistant gemini;
 
     @InjectMocks
     private AssistantServiceImpl service;
@@ -115,5 +123,25 @@ class AssistantServiceImplTest {
         when(mapper.toFaqResponse(FISHING)).thenReturn(second);
 
         assertThat(service.findFaqs()).containsExactly(first, second);
+    }
+
+    @Test
+    void shouldUseGeminiAnswerWhenAvailable() {
+        when(gemini.answer(org.mockito.ArgumentMatchers.any())).thenReturn(Optional.of("<p>Respuesta IA</p>"));
+
+        AssistantAnswerResponse response = service.ask(new AskAssistantRequest("hola", "Ana"));
+
+        assertThat(response.answer()).isEqualTo("<p>Respuesta IA</p>");
+        assertThat(response.source()).isEqualTo(AssistantAnswerResponse.SOURCE_GEMINI);
+    }
+
+    @Test
+    void shouldFallBackToKeywordsWhenGeminiDoesNotAnswer() {
+        when(gemini.answer(org.mockito.ArgumentMatchers.any())).thenReturn(Optional.empty());
+
+        AssistantAnswerResponse response = service.ask(new AskAssistantRequest("hola", "Ana"));
+
+        assertThat(response.answer()).isEqualTo("<p>¡Hola, Ana!</p>");
+        assertThat(response.source()).isEqualTo(AssistantAnswerResponse.SOURCE_KEYWORDS);
     }
 }

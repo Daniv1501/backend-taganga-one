@@ -1,5 +1,6 @@
 package com.taganga.one;
 
+import com.taganga.one.domain.AssistantEntry;
 import com.taganga.one.domain.AssistantEntryType;
 import com.taganga.one.domain.GeoPoint;
 import com.taganga.one.domain.VisitReason;
@@ -18,6 +19,8 @@ import com.taganga.one.repository.AssistantEntryRepository;
 import com.taganga.one.repository.DecalogueRuleRepository;
 import com.taganga.one.repository.VisitorRepository;
 import com.taganga.one.repository.ZoneRepository;
+import com.taganga.one.assistant.TagangaKnowledge;
+import com.taganga.one.dto.response.AssistantAnswerResponse;
 import com.taganga.one.service.AssistantService;
 import com.taganga.one.service.VisitorService;
 import com.taganga.one.service.ZoneService;
@@ -47,7 +50,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * migraciones Flyway, restricciones del esquema y flujos completos de servicio.
  */
 @Testcontainers
-@SpringBootTest
+// Clave de Gemini vacía: las pruebas nunca llaman a Google aunque exista un .env local
+@SpringBootTest(properties = "app.gemini.api-key=")
 @Transactional
 class PersistenceIntegrationTest {
 
@@ -84,6 +88,9 @@ class PersistenceIntegrationTest {
     private AssistantService assistantService;
 
     @Autowired
+    private TagangaKnowledge knowledge;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     private static final String PASSWORD = "clave-segura-1";
@@ -106,14 +113,16 @@ class PersistenceIntegrationTest {
     void migrationsSeedAllPrototypeData() {
         assertThat(zoneRepository.count()).isEqualTo(24);
         assertThat(decalogueRepository.count()).isEqualTo(10);
+        // V8: 6 preguntas rápidas sobre el mapa; las 5 del prototipo ya corregidas pasan a EXTRA
         assertThat(assistantRepository.findByTypeOrderByDisplayOrderAsc(AssistantEntryType.FAQ))
-                .hasSize(6);
+                .extracting(AssistantEntry::getCode)
+                .containsExactly("zepat", "buceo", "snorkel", "recorridos", "embarcaciones", "historias-mapa");
         assertThat(assistantRepository.findByTypeOrderByDisplayOrderAsc(AssistantEntryType.EXTRA))
-                .hasSize(7);
+                .hasSize(12);
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from zone_coordinates", Integer.class)).isEqualTo(233);
         assertThat(jdbcTemplate.queryForObject(
-                "select count(*) from assistant_keywords", Integer.class)).isEqualTo(85);
+                "select count(*) from assistant_keywords", Integer.class)).isEqualTo(115);
     }
 
     @Test
@@ -237,7 +246,7 @@ class PersistenceIntegrationTest {
     @Test
     void assistantAnswersUsingSeededKnowledge() {
         assertThat(assistantService.ask(new AskAssistantRequest("¿Puedo pasar en moto acuática por la bahía?", null)).answer())
-                .contains("rojo punteado");
+                .contains("Moto acuática");
         assertThat(assistantService.ask(new AskAssistantRequest("¿Cómo llego a Playa Grande?", null)).answer())
                 .contains("Hay dos formas");
         assertThat(assistantService.ask(new AskAssistantRequest("hola", "Ana")).answer())
@@ -247,5 +256,41 @@ class PersistenceIntegrationTest {
                 .contains("no cobra");
         assertThat(assistantService.ask(new AskAssistantRequest("xyz", null)).answer())
                 .contains("Aún no tengo información precisa");
+    }
+
+    @Test
+    void assistantFallsBackToKeywordsWithoutGeminiKey() {
+        AssistantAnswerResponse response = assistantService.ask(new AskAssistantRequest("hola", null));
+
+        assertThat(response.source()).isEqualTo(AssistantAnswerResponse.SOURCE_KEYWORDS);
+    }
+
+    @Test
+    void faqsNoLongerDescribeThePrototypeMap() {
+        assertThat(assistantService.findFaqs())
+                .allSatisfy(faq -> assertThat(faq.answer())
+                        .doesNotContain("dorado", "San Pedro", "rojo punteado", "libre tránsito"));
+    }
+
+    @Test
+    void knowledgeIncludesStaticFileZonesAndDecalogue() {
+        String instruction = knowledge.systemInstruction("Ana <script>");
+
+        assertThat(instruction)
+                .contains("Eres Tagui")
+                .contains("Peibuni Tuxe")
+                .contains("ZEPAT Isla Aguja")
+                .contains("Recorrido de kayak")
+                .contains("1. Regístrate")
+                .contains("El visitante se llama Ana script.")
+                .doesNotContain("<script>");
+    }
+
+    @Test
+    void quickQuestionsAreAnsweredByTheirOwnKeywordsWithoutGemini() {
+        assertThat(assistantService.findFaqs()).allSatisfy(faq ->
+                assertThat(assistantService.ask(new AskAssistantRequest(faq.question(), null)).answer())
+                        .as(faq.question())
+                        .isEqualTo(faq.answer()));
     }
 }
