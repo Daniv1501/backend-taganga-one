@@ -1,5 +1,6 @@
 package com.taganga.one.service.impl;
 
+import com.taganga.one.assistant.GeminiAssistant;
 import com.taganga.one.domain.AssistantEntry;
 import com.taganga.one.domain.AssistantEntryType;
 import com.taganga.one.dto.request.AskAssistantRequest;
@@ -10,6 +11,7 @@ import com.taganga.one.repository.AssistantEntryRepository;
 import com.taganga.one.service.AssistantService;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.HtmlUtils;
 
@@ -18,7 +20,8 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Asistente simulado: el mismo motor de palabras clave del prototipo, sin IA real.
+ * Asistente: responde con Gemini (IA) cuando está configurado; si no, o si Gemini falla,
+ * usa el motor de palabras clave del prototipo, que funciona siempre.
  */
 @Service
 @Transactional(readOnly = true)
@@ -28,17 +31,22 @@ public class AssistantServiceImpl implements AssistantService {
 
     private static final String FALLBACK_ANSWER = """
             <p>Aún no tengo información precisa sobre eso. Puedo ayudarte con:</p>
-            <ul><li>Sitios sagrados y religiosos</li><li>Normas de protección ambiental</li>
-            <li>Zonas de pesca artesanal</li><li>Historia comunitaria</li><li>Tus datos personales</li></ul>
-            <p>También puedes consultar a la autoridad comunitaria en la playa principal.</p>""";
+            <ul><li>Las zonas ZEPAT del mapa</li><li>Dónde bucear o hacer snorkel</li>
+            <li>Los recorridos de kayak, gusano y moto acuática</li><li>Las historias de Taganga</li>
+            <li>Tus datos personales</li></ul>
+            <p>También puedes consultar a la autoridad comunitaria o a la Guardia Indígena del Cabildo.</p>""";
 
     private final AssistantEntryRepository repository;
 
     private final AssistantMapper mapper;
 
-    public AssistantServiceImpl(AssistantEntryRepository repository, AssistantMapper mapper) {
+    private final GeminiAssistant gemini;
+
+    public AssistantServiceImpl(AssistantEntryRepository repository, AssistantMapper mapper,
+            GeminiAssistant gemini) {
         this.repository = repository;
         this.mapper = mapper;
+        this.gemini = gemini;
     }
 
     @Override
@@ -49,11 +57,17 @@ public class AssistantServiceImpl implements AssistantService {
                 .toList();
     }
 
+    // Sin transacción: la llamada a Gemini puede tardar segundos y no debe retener una
+    // conexión a la base (en Vercel cada instancia tiene muy pocas). El motor de palabras
+    // clave carga sus palabras clave de una vez (@EntityGraph), así que no la necesita.
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public AssistantAnswerResponse ask(AskAssistantRequest request) {
-        return new AssistantAnswerResponse(
-                personalize(findAnswer(normalize(request.question())), request.visitorName())
-        );
+        return gemini.answer(request)
+                .map(html -> new AssistantAnswerResponse(html, AssistantAnswerResponse.SOURCE_GEMINI))
+                .orElseGet(() -> new AssistantAnswerResponse(
+                        personalize(findAnswer(normalize(request.question())), request.visitorName()),
+                        AssistantAnswerResponse.SOURCE_KEYWORDS));
     }
 
     private String findAnswer(String question) {
